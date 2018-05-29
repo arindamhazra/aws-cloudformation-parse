@@ -1,0 +1,100 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Cloudformation Template to deploy a Lambda function and supporting role to check aws resource complaiance "
+Parameters:
+  pSNSTopicARN:
+    Default: ""
+    Description: "Enter ARN for a valid SNS Topic name configured for Config Alerting"
+    Type: String
+  pJobSchedule:
+    Default: "cron(0 12 * * ? *)"
+    Description: "Enter a valid cron job time to execute "
+    Type: String 
+  pLambdaSourceS3BucketName:
+    Default: ""
+    Description: "Enter the s3 bucket path of lambda .zip file"
+    Type: String
+  pLambdaSourceFileName:
+    Default: ""
+    Description: "Enter the .zip file name"
+    Type: String
+  pAWSAccountNumbers: 
+    Description: "Comma-delimited list of accounts"
+    Type: CommaDelimitedList
+    Default: "1234567890, 0987654321"
+Resources:
+  rConfigurationAggregator: 
+    Type: "AWS::Config::ConfigurationAggregator"
+    Properties: 
+      AccountAggregationSources: 
+        - AccountIds: 
+            !Ref pAWSAccountNumbers          
+          AllAwsRegions: true
+      ConfigurationAggregatorName: ProdConfigurationAggregator
+      
+  rLambdaExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Join [ '-', ['aws_lambda_config_audit_execution_role', !Ref 'AWS::Region']]
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "sts:AssumeRole"
+            Principal:
+              Service: lambda.amazonaws.com
+      Path: /
+      Policies:
+        -
+          PolicyName: !Join [ '-', ['aws_lambda_config_audit_execution_policy', !Ref 'AWS::Region']]
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:*
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                  - sns:Subscribe
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - config:Describe*
+                  - config:Get*
+                  - config:ListDiscoveredResources
+                  - ec2:DescribeRegions
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:*
+                Resource: !Join [ "", ["arn:aws:s3:::", !Ref pLambdaSourceS3BucketName,"/", !Ref pLambdaSourceFileName]]                              
+  rAWSResourceAuditLambda:
+    Type: "AWS::Lambda::Function"
+    DependsOn: rLambdaExecutionRole
+    Properties:
+      Environment:
+        Variables:
+          snsTopicArn: !Ref pSNSTopicARN
+      FunctionName: LambdaAWSAccountComplianceAudit
+      Description: "Lambda Function to perform Compliance audit on AWS Account"
+      Handler: main.lambda_handler
+      Role: !GetAtt [ rLambdaExecutionRole, Arn ]
+      Code:
+        S3Bucket: !Ref pLambdaSourceS3BucketName
+        S3Key: !Ref pLambdaSourceFileName
+      Runtime: python3.6
+      Timeout: "300"
+      MemorySize: "512"
+
+  rCloudwatchScheduleEvent:
+    Type: "AWS::Events::Rule"
+    DependsOn: rAWSResourceAuditLambda
+    Properties:
+      Description: "Scheduled Cloudwatch event to Trigger a Lambda Function on a specific Schdule"
+      Name: "scheduled-aws-compliance-audit"
+      Targets:  
+        - 
+          Arn: !GetAtt [rAWSResourceAuditLambda, Arn]
+          Id: "TargetLambdaFunction2"
+      ScheduleExpression: !Ref pJobSchedule
