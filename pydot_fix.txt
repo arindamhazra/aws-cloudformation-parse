@@ -1,0 +1,7 @@
+1. install graphviz from http://www.graphviz.org/download/
+2. Add C:\Program Files (x86)\Graphviz2.38\bin to PATH
+3. pip install pydot
+4. pip install graphviz
+5. add following to the code:
+	import os
+    	os.environ["PATH"] += os.pathsep + 'C:/Program Files (x86)/Graphviz2.38/bin/'
