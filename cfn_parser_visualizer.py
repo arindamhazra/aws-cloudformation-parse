@@ -125,13 +125,22 @@ def cfn_parsing(fType,cfnFPath,htmlMessage):
                                 cfnResDependsOn = res_val_1
                             if (res_key_1 == 'Properties'):
                                 cfnResProperties = res_val_1
-                                if(cfnResType == 'AWS::IAM::Role'):
+                                if(cfnResType == 'AWS::IAM::Role' and res_val_1.get('Policies',[])):
                                     for poldoc in res_val_1['Policies']:
                                         for polstatement in (poldoc['PolicyDocument']['Statement']):
-                                            if(polstatement['Effect'] == 'Allow' and (polstatement['Resource'] in AWS_RESOURCES)):
-                                                for act in polstatement['Action']:
-                                                    if act in POWERFUL_ACTIONS:
-                                                        prohibitedAction = True
+                                            if(polstatement.get('Resource',[])):
+                                                if(polstatement['Effect'] == 'Allow'):
+                                                    if(polstatement['Resource'] in AWS_RESOURCES):
+                                                        for act in polstatement['Action']:
+                                                            if act in POWERFUL_ACTIONS:
+                                                                prohibitedAction = True
+                                if(cfnResType == 'AWS::IAM::Policy'):
+                                    for polstatement in (res_val_1['PolicyDocument']['Statement']):
+                                        if(polstatement.get('Resource',[])):
+                                            if(polstatement['Effect'] == 'Allow'):
+                                                if(polstatement['Resource'] in AWS_RESOURCES):
+                                                    if polstatement['Action'] in POWERFUL_ACTIONS:
+                                                        prohibitedAction = True                                                                
 
                             graph_dict[cfnResVarName]['ResourceName'] = cfnResVarName
                             graph_dict[cfnResVarName]['ResourceType'] = cfnResType
