@@ -19,4 +19,4 @@ Report Summary:
 ![Report Summary](https://github.com/arindamhazra/aws-cloudformation-parse/blob/master/Images/report.png)
 
 Stack Diagram:
-![Report Summary](https://github.com/arindamhazra/aws-cloudformation-parse/blob/master/Images/diagram.png)
+![Stack Diagram](https://github.com/arindamhazra/aws-cloudformation-parse/blob/master/Images/diagram.png)
