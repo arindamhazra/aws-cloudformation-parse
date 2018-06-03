@@ -3,6 +3,7 @@ This is a python based AWS cloudformation stack parsing script.This script will 
 1. Validates input JSON/YAML file and reports it in the report
 2. Summarize report of all the Parameters,Resources and other Template Fragments
 3. A diagram to visualize all resources and their dependency mappings
+4. Checks for powerful actions and highlights it in the report
 
 # Pre-requisites:
 1. install graphviz from http://www.graphviz.org/download/
