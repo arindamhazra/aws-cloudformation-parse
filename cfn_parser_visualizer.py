@@ -7,6 +7,19 @@ import sys
 import pydot
 
 TEMPLATE_FRAGMENTS = ['AWSTemplateFormatVersion','Description','Metadata','Parameters','Mappings','Conditions','Transform','Resources','Outputs']
+POWERFUL_ACTIONS = ["config:DeleteConfigRule","lambda:AddPermission","lambda:DeleteFunction","lambda:InvokeFunction",
+                    "kms:CreateKey","kms:Decrypt","kms:DisableKey","athena:DeleteNamedQuery","dynamodb:CreateBackup",
+                    "dynamodb:DeleteBackup","dynamodb:DeleteItem","dynamodb:DeleteTable","dax:DeleteCluster","dax:DeleteItem",
+                    "dax:DeleteParameterGroup","dax:DeleteSubnetGroup","dax:RebootNode","ec2:CreateCustomerGateway",
+                    "ec2:CreateDefaultSubnet","ec2:CreateDefaultVpc","ec2:CreateDhcpOptions","ec2:CreateEgressOnlyInternetGateway",
+                    "ec2:CreateNetworkAcl","ec2:CreateNetworkAclEntry","ec2:CreateRoute","ec2:CreateRouteTable","ec2:CreateSubnet",
+                    "ec2:CreateVpc","ec2:CreateVpcEndpoint","ec2:DeleteCustomerGateway","ec2:DeleteDhcpOptions","ec2:DeleteEgressOnlyInternetGateway",
+                    "ec2:DeleteFlowLogs","ec2:DeleteNetworkAcl","ec2:DeleteNetworkAclEntry","ec2:DeleteRoute","ec2:DeleteRouteTable",
+                    "ec2:DeleteSecurityGroup","ec2:DeleteSubnet","ec2:DeleteVpc","ec2:DeleteVpcEndpoints","ec2:DeleteVpcPeeringConnection",
+                    "ec2:DeleteVpnConnection","ec2:DeleteVpnConnectionRoute","ec2:DeleteVpnGateway","cloudformation:DeleteStack","iam:DeleteSAMLProvider",
+                    "iam:DeleteSSHPublicKey","config:*","lambda:*","kms:*","athena:*","dynamodb:*","dax:*","ec2:*","cloudformation:*","iam:*","s3:*"]
+AWS_RESOURCES =     ["*","arn:aws:ec2:*:*:*","arn:aws:config:*:*:*","arn:aws:kms:*:*:*","arn:aws:lambda:*:*:*","arn:aws:dynamodb:*:*:*","arn:aws:iam:*:*:*",
+                    "arn:aws:cloudformation:*:*:*"]
 
 os.environ["PATH"] += os.pathsep + 'C:\\Program Files (x86)\\Graphviz2.38\\bin\\'
 cfnFilePath = sys.argv[1]
@@ -36,7 +49,6 @@ def draw_graph(g_dict,imgPath):
                 else:
                     graph.add_edge(pydot.Edge(dependsOn,node, labelfontcolor="#f00", fontsize="6.5", color="red",style="dashed"))
             graph.add_edge(pydot.Edge(root_node, node, label= resourceType, labelfontcolor="#fff", fontsize="6.5", color="blue"))
-        # graph.write_png(imgPath)
         graph.write(imgPath, format='png')
     except pydot.Error as e:
         print(e)
@@ -69,8 +81,8 @@ def save_html(htmlMessage):
 
 def cfn_parsing(fType,cfnFPath,htmlMessage):
     graph_dict = {}
-    # <img src="+imgPath+" alt='Cloudformation Resource' style='width:100%;' style='text-align:center'>
-    htmlMessage += "<p>Click <a img href="+imgPath+" target = '_blank' > here </a> for Cloudformation stack diagram</p><table><tr><th colspan='4'>General Information</th></tr><tr><td>"
+    htmlMessage += """<p>Click <a img href="""+imgPath+""" target = '_blank' > here </a> for Cloudformation stack diagram</p>
+    <table><tr><th colspan='5'>General Information</th></tr>"""
     with open(cfnFPath, 'r') as stream:    
         try:
             if(fType == "json"):
@@ -81,34 +93,29 @@ def cfn_parsing(fType,cfnFPath,htmlMessage):
             for k,v in cfn_data.items():
                 if(k == 'AWSTemplateFormatVersion'):
                     cfnVersion = v
-                    htmlMessage += "AWS Template Format Version</td><td colspan='3'>"+cfnVersion+"</td></tr><tr><td>"
+                    htmlMessage += "<tr><td>AWS Template Format Version</td><td colspan='4'>"+cfnVersion+"</td></tr>"
                 elif(k == 'Description'):
                     cfnDescription = v 
-                    htmlMessage += "AWS Template Description</td><td colspan='3'>"+cfnDescription+"</td></tr>"
+                    htmlMessage += "<tr><td>AWS Template Description</td><td colspan='4'>"+cfnDescription+"</td></tr>"
                 elif(k == 'Parameters'):            
                     paramCount = len(v)
-                    if (int(paramCount) < 1):
-                        paramCount = 0
-                        htmlMessage += "<tr style='text-align:center'><th colspan='4'>Parameters("+str(paramCount)+")</th></tr>"
-                    else:
-                        htmlMessage += "<tr style='text-align:center'><th colspan='4'>Parameters("+str(paramCount)+")</th></tr>"
-                        htmlMessage += "<tr><th>Parameter Name</th><th colspan='3'>Parameter Type</th></tr>"
+                    if (int(paramCount) > 0):
+                        htmlMessage += "<tr style='text-align:center'><th colspan='5'>Parameters("+str(paramCount)+")</th></tr>"
+                        htmlMessage += "<tr><th>Parameter Name</th><th colspan='4'>Parameter Type</th></tr>"
                     for param_key,param_val in v.items():
                         for param_key_1,param_val_1 in param_val.items():
                             cfnParamName = param_key
                             if (param_key_1 == 'Type'):                            
                                 cfnParamType = param_val_1
-                                htmlMessage += "<tr><td>"+cfnParamName+"</td><td colspan='3'>"+cfnParamType+"</td></tr>"
+                                htmlMessage += "<tr><td>"+cfnParamName+"</td><td colspan='4'>"+cfnParamType+"</td></tr>"
                 elif(k == 'Resources'):
                     resouceCount = len(v)
-                    if (int(resouceCount) < 1):
-                        resouceCount = 0
-                        htmlMessage += "<tr style='text-align:center'><th colspan='4'>Resources("+str(resouceCount)+")</th></tr>"
-                    else:
-                        htmlMessage += "<tr style='text-align:center'><th colspan='4'>Resources("+str(resouceCount)+")</th></tr>"
-                        htmlMessage += "<tr><th>Resource Type</th><th>Resource Logical Name</th><th>Depends On</th><th>Properties</th></tr>"               
+                    if (int(resouceCount) > 0):
+                        htmlMessage += "<tr style='text-align:center'><th colspan='5'>Resources("+str(resouceCount)+")</th></tr>"
+                        htmlMessage += "<tr><th>Resource Type</th><th>Resource Logical Name</th><th>Depends On</th><th>Comments</th><th>Properties</th></tr>"               
                     for res_key,res_val in v.items():
                         cfnResType = cfnResDependsOn = cfnResProperties = "NA"
+                        prohibitedAction = False
                         for res_key_1,res_val_1 in res_val.items():
                             cfnResVarName = res_key
                             graph_dict[cfnResVarName] = {}                                        
@@ -118,28 +125,41 @@ def cfn_parsing(fType,cfnFPath,htmlMessage):
                                 cfnResDependsOn = res_val_1
                             if (res_key_1 == 'Properties'):
                                 cfnResProperties = res_val_1
+                                if(cfnResType == 'AWS::IAM::Role'):
+                                    for poldoc in res_val_1['Policies']:
+                                        for polstatement in (poldoc['PolicyDocument']['Statement']):
+                                            if(polstatement['Effect'] == 'Allow' and (polstatement['Resource'] in AWS_RESOURCES)):
+                                                for act in polstatement['Action']:
+                                                    if act in POWERFUL_ACTIONS:
+                                                        prohibitedAction = True
+
                             graph_dict[cfnResVarName]['ResourceName'] = cfnResVarName
                             graph_dict[cfnResVarName]['ResourceType'] = cfnResType
                             graph_dict[cfnResVarName]['DependsOn'] = cfnResDependsOn
-                        htmlMessage += "<tr><td><div style='word-break:break-all;'>"+cfnResType+"</div></td><td>"+cfnResVarName+"</td><td>"+str(cfnResDependsOn)+"</td><td><div style='word-break:break-all;'>"+str(cfnResProperties)+"</div></td></tr>"
-                    # draw_graph(graph_dict,imgPath)
+                        if (prohibitedAction):
+                            htmlMessage += "<tr style='color:#f00' ><td><div style='word-break:break-all;'>"+cfnResType+"</div></td><td>"+cfnResVarName+"</td><td>"+str(cfnResDependsOn)+"</td><td>warning:Powerful Action </td><td><div style='word-break:break-all;'>"+str(cfnResProperties)+"</div></td></tr>"
+                        else:
+                            htmlMessage += "<tr><td><div style='word-break:break-all;'>"+cfnResType+"</div></td><td>"+cfnResVarName+"</td><td>"+str(cfnResDependsOn)+"</td><td></td><td><div style='word-break:break-all;'>"+str(cfnResProperties)+"</div></td></tr>"
                 elif(k == 'Outputs'):
                     outputCount = len(v)
-                    if (int(outputCount) < 1):
-                        outputCount = 0
-                        htmlMessage += "<tr style='text-align:center'><th colspan='4'>Outputs("+str(outputCount)+")</th></tr>"
-                    else:
-                        htmlMessage += "<tr style='text-align:center'><th colspan='4'>Outputs("+str(outputCount)+")</th></tr>"
-                        htmlMessage += "<tr><th>Output Logical Name</th><th colspan='3'>Output Value</th></tr>" 
+                    if (int(outputCount) > 0):
+                        htmlMessage += "<tr style='text-align:center'><th colspan='5'>Outputs("+str(outputCount)+")</th></tr>"
+                        htmlMessage += "<tr><th>Output Logical Name</th><th colspan='4'>Output Value</th></tr>" 
                     for out_key,out_val in v.items(): 
                         cfnOutName = out_key
-                        for out_key_1,out_val_1 in out_val.items():
-                            
+                        for out_key_1,out_val_1 in out_val.items():                            
                             if(out_key_1 == 'Value'):
                                 cfnOutValue = out_val_1
-                        htmlMessage += "<tr><td>"+str(cfnOutName)+"</td><td colspan='3'>"+str(cfnOutValue)+"</td></tr>"                       
+                        htmlMessage += "<tr><td>"+str(cfnOutName)+"</td><td colspan='4'>"+str(cfnOutValue)+"</td></tr>"
+                elif(k == 'Conditions'):
+                    conditionsCount = len(v)
+                    if (int(conditionsCount) > 0):
+                        htmlMessage += "<tr style='text-align:center'><th colspan='5'>Conditions("+str(conditionsCount)+")</th></tr>"
+                        htmlMessage += "<tr><th>Condition Name</th><th colspan='4'>Condition Value</th></tr>" 
+                    for con_key,con_val in v.items(): 
+                        htmlMessage += "<tr><td>"+str(con_key)+"</td><td colspan='4'>"+str(con_val)+"</td></tr>"                                            
                 else:
-                    print("Unknown Template Fragment")
+                    pass
             htmlMessage += "</table></div></body></html>"
             draw_graph(graph_dict,imgPath)
             save_html(htmlMessage)
@@ -153,9 +173,9 @@ def cfn_parsing(fType,cfnFPath,htmlMessage):
 
 htmlMessage = """<html><head><title>Cloudformation Template Summary Report</title><style>table, th, td {
                     border: 1px solid black;border-collapse: collapse;} th { background: #F5B041;color: #1C2833} 
-                    th,td,h1,h3 {font-family:  Arial, Helvetica, sans-serif;} table { table-layout: fixed;} 
+                    main_th { background: #D35400;} th,td,h1,h3 {font-family:  Arial, Helvetica, sans-serif;} table { table-layout: fixed;} 
                     td { border: 1px solid; word-wrap: break-all} .content { max-width: 80%;
-                    margin: auto; background: #FDEBD0;padding: 10px; text-align:left;font-family: Arial, Helvetica, sans-serif;}
+                    margin: auto; background: #FDEBD0;padding: 8px; text-align:left;font-family: Arial, Helvetica, sans-serif;}
                     </style></head><body><div class="content">
                     <h1 style="text-align:center"> Cloudformation Template Summary Report</h1>
                     Cloudformation Template File =  """+cfnFilePath
