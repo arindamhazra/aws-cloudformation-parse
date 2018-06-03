@@ -16,7 +16,7 @@ Example: python.exe cfn_parser_visualizer.py 'c:\test\example-cloudformation.yam
 
 # Output:
 Report Summary:
-![Report Summary](https://github.com/arindamhazra/aws-cloudformation-parse/Images/report.png)
+![Report Summary](https://github.com/arindamhazra/aws-cloudformation-parse/blob/master/Images/report.png)
 
 Stack Diagram:
-![Report Summary](https://github.com/arindamhazra/aws-cloudformation-parse/Images/diagram.png)
+![Report Summary](https://github.com/arindamhazra/aws-cloudformation-parse/blob/master/Images/diagram.png)
