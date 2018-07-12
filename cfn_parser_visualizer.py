@@ -5,6 +5,9 @@ import platform
 import tempfile
 import sys
 import pydot
+## for parsing arguments, of course
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
+
 
 TEMPLATE_FRAGMENTS = ['AWSTemplateFormatVersion','Description','Metadata','Parameters','Mappings','Conditions','Transform','Resources','Outputs']
 POWERFUL_ACTIONS = ["config:DeleteConfigRule","lambda:AddPermission","lambda:DeleteFunction","lambda:InvokeFunction",
@@ -20,9 +23,45 @@ POWERFUL_ACTIONS = ["config:DeleteConfigRule","lambda:AddPermission","lambda:Del
                     "iam:DeleteSSHPublicKey","config:*","lambda:*","kms:*","athena:*","dynamodb:*","dax:*","ec2:*","cloudformation:*","iam:*","s3:*"]
 AWS_RESOURCES =     ["*","arn:aws:ec2:*:*:*","arn:aws:config:*:*:*","arn:aws:kms:*:*:*","arn:aws:lambda:*:*:*","arn:aws:dynamodb:*:*:*","arn:aws:iam:*:*:*",
                     "arn:aws:cloudformation:*:*:*"]
+## examples to put in the help
+strFunctionExamples = """
+## Visualize the relationships in the given CloudFormation yaml file
 
-os.environ["PATH"] += os.pathsep + 'C:\\Program Files (x86)\\Graphviz2.38\\bin\\'
-cfnFilePath = sys.argv[1]
+cfn_parser_visualizer.py c:\\test\\example-cloudformation.yaml
+
+## Visualizes the relationships in the given CloudFormation json file, and uses the GraphViz binary from the given UNC path
+
+cfn_parser_visualizer.py c:\\test\\example-cloudformation.json --graphvizBinFilespec \\\\someserver.dom.com\\share\\graphviz\\bin
+"""
+
+
+
+# setup code to take some arguments (via the argparse.ArgumentParser class)
+oMyArgumentParser = ArgumentParser(
+    add_help = True,
+    description = "Visualize the config from the given CloudFormation file, using PyDot and GraphViz",
+    ## add some examples in the epilog of the help
+    epilog = 'Examples:{0}'.format(strFunctionExamples),
+    formatter_class = RawDescriptionHelpFormatter
+)
+oMyArgumentParser.add_argument(
+    ## argument is positional due to having no "--" prefix
+    'path',
+    help = "The full path to the CloudFormation definition file (yaml or json) whose config information to visualize"
+)
+oMyArgumentParser.add_argument(
+    '--graphvizBinFilespec',
+    help = "The full path to the GraphViz 'bin' folder for use here. If none specified, will assume that this 'bin' direcotry is already in the PATH for the current shell environment"
+)
+## parse the arguments (includes setting args to default values as defined)
+oParsedArguments = oMyArgumentParser.parse_args()
+
+
+## add either the specified folder to the PATH, or the default GraphViz bin folder to the PATH
+os.environ["PATH"] += os.pathsep
+os.environ["PATH"] += oParsedArguments.graphvizBinFilespec if oParsedArguments.graphvizBinFilespec is not None else 'C:\\Program Files (x86)\\Graphviz2.38\\bin\\'
+## the CloudFormation file of interest
+cfnFilePath = oParsedArguments.path
 filename = 'file:///'+tempfile.gettempdir()+'\\CloudFormationSummary.html'
 outFilePath = tempfile.gettempdir()+'\\CloudFormationSummary.html'
 imgPath = tempfile.gettempdir()+'\\cfn-resource-mapping.png'
@@ -60,7 +99,7 @@ def general_constructor(loader, tag_suffix, node):
     return node.value
 
 def validate_yaml(fPath):
-    with open(fPath, 'r') as stream:    
+    with open(fPath, 'r') as stream:
         try:
             yaml.safe_load(stream)
             return True
@@ -68,7 +107,7 @@ def validate_yaml(fPath):
             return False
 
 def validate_json(fPath):
-    with open(fPath, 'r') as stream:    
+    with open(fPath, 'r') as stream:
         try:
             json.load(stream)
             return True
@@ -77,13 +116,13 @@ def validate_json(fPath):
 
 def save_html(htmlMessage):
     htmlFile.write(htmlMessage)
-    htmlFile.close() 
+    htmlFile.close()
 
 def cfn_parsing(fType,cfnFPath,htmlMessage):
     graph_dict = {}
     htmlMessage += """<p>Click <a img href="""+imgPath+""" target = '_blank' > here </a> for Cloudformation stack diagram</p>
     <table><tr><th colspan='5'>General Information</th></tr>"""
-    with open(cfnFPath, 'r') as stream:    
+    with open(cfnFPath, 'r') as stream:
         try:
             if(fType == "json"):
                 cfn_data = json.load(stream)
@@ -95,9 +134,9 @@ def cfn_parsing(fType,cfnFPath,htmlMessage):
                     cfnVersion = v
                     htmlMessage += "<tr><td>AWS Template Format Version</td><td colspan='4'>"+cfnVersion+"</td></tr>"
                 elif(k == 'Description'):
-                    cfnDescription = v 
+                    cfnDescription = v
                     htmlMessage += "<tr><td>AWS Template Description</td><td colspan='4'>"+cfnDescription+"</td></tr>"
-                elif(k == 'Parameters'):            
+                elif(k == 'Parameters'):
                     paramCount = len(v)
                     if (int(paramCount) > 0):
                         htmlMessage += "<tr style='text-align:center'><th colspan='5'>Parameters("+str(paramCount)+")</th></tr>"
@@ -105,21 +144,21 @@ def cfn_parsing(fType,cfnFPath,htmlMessage):
                     for param_key,param_val in v.items():
                         for param_key_1,param_val_1 in param_val.items():
                             cfnParamName = param_key
-                            if (param_key_1 == 'Type'):                            
+                            if (param_key_1 == 'Type'):
                                 cfnParamType = param_val_1
                                 htmlMessage += "<tr><td>"+cfnParamName+"</td><td colspan='4'>"+cfnParamType+"</td></tr>"
                 elif(k == 'Resources'):
                     resouceCount = len(v)
                     if (int(resouceCount) > 0):
                         htmlMessage += "<tr style='text-align:center'><th colspan='5'>Resources("+str(resouceCount)+")</th></tr>"
-                        htmlMessage += "<tr><th>Resource Type</th><th>Resource Logical Name</th><th>Depends On</th><th>Comments</th><th>Properties</th></tr>"               
+                        htmlMessage += "<tr><th>Resource Type</th><th>Resource Logical Name</th><th>Depends On</th><th>Comments</th><th>Properties</th></tr>"
                     for res_key,res_val in v.items():
                         cfnResType = cfnResDependsOn = cfnResProperties = "NA"
                         prohibitedAction = False
                         for res_key_1,res_val_1 in res_val.items():
                             cfnResVarName = res_key
-                            graph_dict[cfnResVarName] = {}                                        
-                            if (res_key_1 == 'Type'):                            
+                            graph_dict[cfnResVarName] = {}
+                            if (res_key_1 == 'Type'):
                                 cfnResType = res_val_1
                             if (res_key_1 == 'DependsOn'):
                                 cfnResDependsOn = res_val_1
@@ -140,7 +179,7 @@ def cfn_parsing(fType,cfnFPath,htmlMessage):
                                             if(polstatement['Effect'] == 'Allow'):
                                                 if(polstatement['Resource'] in AWS_RESOURCES):
                                                     if polstatement['Action'] in POWERFUL_ACTIONS:
-                                                        prohibitedAction = True                                                                
+                                                        prohibitedAction = True
 
                             graph_dict[cfnResVarName]['ResourceName'] = cfnResVarName
                             graph_dict[cfnResVarName]['ResourceType'] = cfnResType
@@ -153,10 +192,10 @@ def cfn_parsing(fType,cfnFPath,htmlMessage):
                     outputCount = len(v)
                     if (int(outputCount) > 0):
                         htmlMessage += "<tr style='text-align:center'><th colspan='5'>Outputs("+str(outputCount)+")</th></tr>"
-                        htmlMessage += "<tr><th>Output Logical Name</th><th colspan='4'>Output Value</th></tr>" 
-                    for out_key,out_val in v.items(): 
+                        htmlMessage += "<tr><th>Output Logical Name</th><th colspan='4'>Output Value</th></tr>"
+                    for out_key,out_val in v.items():
                         cfnOutName = out_key
-                        for out_key_1,out_val_1 in out_val.items():                            
+                        for out_key_1,out_val_1 in out_val.items():
                             if(out_key_1 == 'Value'):
                                 cfnOutValue = out_val_1
                         htmlMessage += "<tr><td>"+str(cfnOutName)+"</td><td colspan='4'>"+str(cfnOutValue)+"</td></tr>"
@@ -164,9 +203,9 @@ def cfn_parsing(fType,cfnFPath,htmlMessage):
                     conditionsCount = len(v)
                     if (int(conditionsCount) > 0):
                         htmlMessage += "<tr style='text-align:center'><th colspan='5'>Conditions("+str(conditionsCount)+")</th></tr>"
-                        htmlMessage += "<tr><th>Condition Name</th><th colspan='4'>Condition Value</th></tr>" 
-                    for con_key,con_val in v.items(): 
-                        htmlMessage += "<tr><td>"+str(con_key)+"</td><td colspan='4'>"+str(con_val)+"</td></tr>"                                            
+                        htmlMessage += "<tr><th>Condition Name</th><th colspan='4'>Condition Value</th></tr>"
+                    for con_key,con_val in v.items():
+                        htmlMessage += "<tr><td>"+str(con_key)+"</td><td colspan='4'>"+str(con_val)+"</td></tr>"
                 else:
                     pass
             htmlMessage += "</table></div></body></html>"
@@ -181,8 +220,8 @@ def cfn_parsing(fType,cfnFPath,htmlMessage):
 
 
 htmlMessage = """<html><head><title>Cloudformation Template Summary Report</title><style>table, th, td {
-                    border: 1px solid black;border-collapse: collapse;} th { background: #F5B041;color: #1C2833} 
-                    main_th { background: #D35400;} th,td,h1,h3 {font-family:  Arial, Helvetica, sans-serif;} table { table-layout: fixed;} 
+                    border: 1px solid black;border-collapse: collapse;} th { background: #F5B041;color: #1C2833}
+                    main_th { background: #D35400;} th,td,h1,h3 {font-family:  Arial, Helvetica, sans-serif;} table { table-layout: fixed;}
                     td { border: 1px solid; word-wrap: break-all} .content { max-width: 80%;
                     margin: auto; background: #FDEBD0;padding: 8px; text-align:left;font-family: Arial, Helvetica, sans-serif;}
                     </style></head><body><div class="content">
@@ -209,7 +248,7 @@ if(file_extension == ".yaml"):
 elif(file_extension == ".json" or file_extension == ".template"):
     if(validate_json(cfnFilePath)):
         htmlMessage += "<p style='color:green;text-align:left'> "+cfnFilePath+" is a valid JSON/Template file.</p>"
-        cfn_parsing("json",cfnFilePath,htmlMessage)        
+        cfn_parsing("json",cfnFilePath,htmlMessage)
     else:
         htmlMessage += "<p style='color:red;text-align:left'>Error: "+cfnFilePath+" is not a valid JSON/Template file.Please check the file and try again!</h3></div></body></html>"
         save_html(htmlMessage)
